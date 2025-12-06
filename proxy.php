@@ -1,82 +1,89 @@
 <?php
-// proxy.php - Yahoo Finance proxy: ?t=AAPL
+// proxy.php
+// Simple Yahoo Finance proxy with CORS headers
 
-// CORS headers
+// CORS / access headers so the browser can call this from your HTML
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Accept');
-header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
+header('Content-Type: application/json; charset=utf-8');
+
+// Read ticker from query: ?t=AAPL
 $ticker = isset($_GET['t']) ? trim($_GET['t']) : '';
 
 if ($ticker === '') {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing ticker parameter t']);
+    echo json_encode(['error' => 'Missing ticker parameter "t"']);
     exit;
 }
 
-if (!preg_match('/^[A-Za-z0-9\.\-^=]+$/', $ticker)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Invalid ticker']);
-    exit;
-}
+$url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' . urlencode($ticker);
 
-$yahooUrl = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' . urlencode($ticker);
+// Fetch helper
+function yahoo_fetch($url)
+{
+    // Prefer cURL if available
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 StockChatBot/1.0',
+        ]);
 
-// Try cURL first, fallback to file_get_contents
-$response = '';
-$httpCode = 0;
-$errorMsg = '';
+        $body = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-if (function_exists('curl_init')) {
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL            => $yahooUrl,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERAGENT      => 'Mozilla/5.0',
-    ]);
-    $response = curl_exec($ch);
-    $errorMsg = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-} else {
+        if ($body === false || $code >= 400) {
+            return [null, "Yahoo request failed (HTTP $code) $err"];
+        }
+
+        return [$body, null];
+    }
+
+    // Fallback: file_get_contents
     $context = stream_context_create([
         'http' => [
             'method'  => 'GET',
-            'header'  => "User-Agent: Mozilla/5.0\r\n",
-            'timeout' => 10
-        ],
-        'ssl' => [
-            'verify_peer'      => true,
-            'verify_peer_name' => true,
-        ],
+            'header'  => "User-Agent: Mozilla/5.0 StockChatBot/1.0\r\n",
+            'timeout' => 10,
+        ]
     ]);
-    $response = @file_get_contents($yahooUrl, false, $context);
-    if ($response === false) {
-        $errorMsg = 'file_get_contents error';
+
+    $body = @file_get_contents($url, false, $context);
+    if ($body === false) {
+        return [null, 'file_get_contents failed to reach Yahoo Finance'];
     }
-    $httpCode = 200; // best-effort, PHP doesn’t expose easily without parsing headers
+
+    return [$body, null];
 }
 
-if ($response === false || $response === '' || $errorMsg !== '') {
+list($body, $error) = yahoo_fetch($url);
+
+if ($error !== null) {
     http_response_code(502);
-    echo json_encode(['error' => 'Upstream error: ' . $errorMsg]);
+    echo json_encode(['error' => $error]);
     exit;
 }
 
-$data = json_decode($response, true);
-if (!is_array($data)) {
+// Make sure Yahoo response is JSON
+json_decode($body);
+if (json_last_error() !== JSON_ERROR_NONE) {
     http_response_code(502);
-    echo json_encode(['error' => 'Invalid JSON from Yahoo']);
+    echo json_encode(['error' => 'Yahoo response was not valid JSON']);
     exit;
 }
 
-echo json_encode($data);
+// Pass Yahoo JSON straight through
+echo $body;

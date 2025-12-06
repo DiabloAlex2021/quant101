@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stock Chat Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #050505;
+      --panel: #111111;
+      --border: #272727;
+      --text-main: #f5f5f5;
+      --text-sub: #9b9b9b;
+      --user-bubble: #1f2933;
+      --bot-bubble: #111111;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 16px;
+      background: radial-gradient(circle at top, #181818 0, #050505 55%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text-main);
+    }
+
+    .app {
+      max-width: 900px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 18px;
+      border: 1px solid #1b1b1b;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #101010, #050505);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #ffffff, #777777);
+      box-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .header-right {
+      font-size: 11px;
+      color: var(--text-sub);
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(20, 20, 20, 0.9);
+    }
+
+    .chat {
+      flex: 1;
+      padding: 18px 18px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #444 #050505;
+    }
+
+    .chat::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat::-webkit-scrollbar-track {
+      background: #050505;
+    }
+    .chat::-webkit-scrollbar-thumb {
+      background-color: #444;
+      border-radius: 999px;
+    }
+
+    .message-row {
+      display: flex;
+      width: 100%;
+    }
+
+    .message-row.bot {
+      justify-content: flex-start;
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .bot .bubble {
+      background: var(--bot-bubble);
+      border-color: #1f2933;
+    }
+
+    .user .bubble {
+      background: var(--user-bubble);
+      border-color: #374151;
+    }
+
+    .bubble-header {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .bubble-body {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .timestamp {
+      display: block;
+      font-size: 10px;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+
+    .footer {
+      padding: 10px 14px 12px;
+      border-top: 1px solid var(--border);
+      background: linear-gradient(0deg, #050505, #090909);
+    }
+
+    .input-shell {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid #2b2b2b;
+      background: radial-gradient(circle at top left, #111111, #050505);
+    }
+
+    .input-shell textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 13px;
+      resize: none;
+      max-height: 80px;
+      outline: none;
+      padding: 4px 0;
+    }
+
+    .input-shell textarea::placeholder {
+      color: var(--text-sub);
+    }
+
+    .send-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #f5f5f5;
+      color: #050505;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(255, 255, 255, 0.12);
+      transition: transform 0.08s ease-out, box-shadow 0.08s ease-out;
+      white-space: nowrap;
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .send-btn:not(:disabled):active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+    }
+
+    .typing {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 8px;
+      }
+      .app {
+        border-radius: 14px;
+      }
+      .bubble {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-dot"></div>
+        <div>
+          <div class="header-title">Stock Chat Bot</div>
+          <div class="header-subtitle">Ask for a ticker: AAPL, TSLA, NVDA...</div>
+        </div>
+      </div>
+      <div class="header-right">Yahoo Finance · Realtime</div>
+    </header>
+
+    <main id="chat" class="chat"></main>
+
+    <footer class="footer">
+      <form id="chat-form">
+        <div class="input-shell">
+          <textarea
+            id="chat-input"
+            rows="1"
+            placeholder="Type a ticker or question... (e.g. AAPL, What is TSLA now?)"
+          ></textarea>
+          <button id="send-btn" class="send-btn" type="submit">Send</button>
+        </div>
+      </form>
+    </footer>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    function nowTime() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function addMessage(role, text) {
+      const row = document.createElement("div");
+      row.className = "message-row " + (role === "user" ? "user" : "bot");
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+
+      const header = document.createElement("div");
+      header.className = "bubble-header";
+      header.textContent = role === "user" ? "You" : "Bot";
+
+      const body = document.createElement("div");
+      body.className = "bubble-body";
+      body.textContent = text;
+
+      const ts = document.createElement("span");
+      ts.className = "timestamp";
+      ts.textContent = nowTime();
+
+      bubble.appendChild(header);
+      bubble.appendChild(body);
+      bubble.appendChild(ts);
+      row.appendChild(bubble);
+      chat.appendChild(row);
+
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addTyping() {
+      const row = document.createElement("div");
+      row.className = "message-row bot";
+      row.id = "typing-row";
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+
+      const header = document.createElement("div");
+      header.className = "bubble-header";
+      header.textContent = "Bot";
+
+      const body = document.createElement("div");
+      body.className = "bubble-body typing";
+      body.textContent = "Thinking...";
+
+      bubble.appendChild(header);
+      bubble.appendChild(body);
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function removeTyping() {
+      const row = document.getElementById("typing-row");
+      if (row) row.remove();
+    }
+
+    function extractTicker(text) {
+      const m = text.trim().match(/([A-Za-z0-9\.\-^=]+)/);
+      return m ? m[1].toUpperCase() : "";
+    }
+
+    async function fetchQuote(ticker) {
+      const res = await fetch("proxy.php?t=" + encodeURIComponent(ticker), {
+        method: "GET"
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error("HTTP " + res.status + (t ? " - " + t : ""));
+      }
+
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (
+        !data.quoteResponse ||
+        !Array.isArray(data.quoteResponse.result) ||
+        data.quoteResponse.result.length === 0
+      ) {
+        throw new Error("No result for " + ticker);
+      }
+
+      const q = data.quoteResponse.result[0];
+      const price = q.regularMarketPrice;
+      const beta =
+        typeof q.beta === "number"
+          ? q.beta
+          : q.beta === null || q.beta === undefined
+          ? "N/A"
+          : q.beta;
+
+      return { price, beta };
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage("user", text);
+      input.value = "";
+      input.style.height = "auto";
+
+      const ticker = extractTicker(text);
+      if (!ticker) {
+        addMessage("bot", "I could not find a ticker in your message.");
+        return;
+      }
+
+      addTyping();
+      sendBtn.disabled = true;
+
+      try {
+        const { price, beta } = await fetchQuote(ticker);
+        removeTyping();
+        const reply =
+          ticker +
+          "\nCurrent Price: " +
+          price +
+          "\nBeta: " +
+          beta;
+        addMessage("bot", reply);
+      } catch (err) {
+        removeTyping();
+        addMessage("bot", "Error: " + err.message);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+
+    input.addEventListener("input", () => {
+      input.style.height = "auto";
+      input.style.height = input.scrollHeight + "px";
+    });
+
+    addMessage(
+      "bot",
+      "Tell me a stock ticker (AAPL, TSLA, NVDA...) and I will fetch its current price and beta from Yahoo Finance."
+    );
+  </script>
+</body>
+</html>
